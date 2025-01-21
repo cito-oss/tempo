@@ -36,13 +36,13 @@ func Greeter(ctx context.Context, name string) (string, error) {
 	return "Hello " + name, nil
 }
 
-func SayHello(t *tempo.T, name string) {
+func SayHello(t *tempo.T) {
 	var greetings string
 
-	err := t.Task(Greeter, name, &greetings)
+	err := t.Task(Greeter, "John Doe", &greetings)
 	require.NoError(t, err)
 
-	assert.Equal(t, "Hello "+name, greetings)
+	assert.Equal(t, "Hello John Doe", greetings)
 }
 
 func main() {
@@ -59,7 +59,7 @@ func main() {
 
 	tempo.Worker(myworker, tempo.Registry{
 		Tests: []tempo.Test{
-			tempo.NewTestWithInput(SayHello),
+			tempo.NewTest(SayHello),
 		},
 		Tasks: []tempo.Task{
 			Greeter,
