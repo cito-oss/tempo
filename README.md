@@ -1,1 +1,91 @@
-# tempo
+# Tempo
+
+Tempo is a utility that runs Go-like tests in a distributed manner using Temporal.
+
+## Usage
+
+Add the dependency to your `go.mod` file:
+
+```bash
+go get github.com/cito-oss/tempo
+```
+
+> [!TIP]
+> For more examples, check the [_example](/_example) directory.
+
+Then create your first test app:
+
+```go
+package main
+
+import (
+	"context"
+
+	"github.com/cito-oss/tempo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+)
+
+func Greeter(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		name = "World"
+	}
+
+	return "Hello " + name, nil
+}
+
+func SayHello(t *tempo.T, name string) {
+	var greetings string
+
+	err := t.Task(Greeter, name, &greetings)
+	require.NoError(t, err)
+
+	assert.Equal(t, "Hello "+name, greetings)
+}
+
+func main() {
+	cli, err := client.Dial(client.Options{})
+	if err != nil {
+		panic(err)
+	}
+	defer cli.Close()
+
+	queue := "default"
+
+	// WORKER
+	myworker := worker.New(cli, queue, worker.Options{})
+
+	tempo.Worker(myworker, tempo.Registry{
+		Tests: []tempo.Test{
+			tempo.NewTestWithInput(SayHello),
+		},
+		Tasks: []tempo.Task{
+			Greeter,
+		},
+	})
+
+	err = myworker.Start()
+	if err != nil {
+		panic(err)
+	}
+	defer myworker.Stop()
+	// /WORKER
+
+	// RUNNER
+	myrunner := tempo.NewRunner(cli, queue,
+		tempo.NewPlan(SayHello, "John Doe"),
+	)
+
+	err = myrunner.Run("v1.0.0")
+	if err != nil {
+		panic(err)
+	}
+	// /RUNNER
+}
+```
+
+Now run it and check your Temporal:
+
+![image](screenshot.png)
