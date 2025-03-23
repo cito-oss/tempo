@@ -3,7 +3,7 @@
 
 # Tempo
 
-Tempo is a utility that runs Go-like tests in a distributed manner using Temporal.
+Tempo is a Go library for running Go-like tests in a distributed manner using Temporal.
 
 ## Usage
 
