@@ -39,7 +39,16 @@ func Greeter(ctx context.Context, name string) (string, error) {
 	return "Hello " + name, nil
 }
 
-func SayHello(t *tempo.T) {
+func SayHello(t *tempo.T, name string) {
+	t.Run("must greet :name", func(t *tempo.T) {
+		var greetings string
+
+		err := t.Task(Greeter, name, &greetings)
+		require.NoError(t, err)
+
+		assert.Equal(t, "Hello "+name, greetings)
+	})
+
 	t.Run("must greet John Doe", func(t *tempo.T) {
 		var greetings string
 
@@ -73,7 +82,7 @@ func main() {
 
 	tempo.Worker(myworker, tempo.Registry{
 		Tests: []tempo.Test{
-			tempo.NewTest(SayHello),
+			tempo.NewTestWithInput(SayHello),
 		},
 		Tasks: []tempo.Task{
 			Greeter,
@@ -90,7 +99,7 @@ func main() {
 
 	// RUNNER
 	myrunner := tempo.NewRunner(cli, queue,
-		tempo.NewPlan(SayHello, nil),
+		tempo.NewPlan(SayHello, "Tempo"),
 	)
 
 	// blocking call
