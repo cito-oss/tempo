@@ -90,7 +90,7 @@ func main() {
 
 	// RUNNER
 	myrunner := tempo.NewRunner(cli, queue,
-		tempo.NewPlan(SayHello, "John Doe"),
+		tempo.NewPlan(SayHello, nil),
 	)
 
 	// blocking call
