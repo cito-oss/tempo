@@ -40,12 +40,23 @@ func Greeter(ctx context.Context, name string) (string, error) {
 }
 
 func SayHello(t *tempo.T) {
-	var greetings string
+	t.Run("must greet John Doe", func(t *tempo.T) {
+		var greetings string
 
-	err := t.Task(Greeter, "John Doe", &greetings)
-	require.NoError(t, err)
+		err := t.Task(Greeter, "John Doe", &greetings)
+		require.NoError(t, err)
 
-	assert.Equal(t, "Hello John Doe", greetings)
+		assert.Equal(t, "Hello John Doe", greetings)
+	})
+
+	t.Run("must greet World", func(t *tempo.T) {
+		var greetings string
+
+		err := t.Task(Greeter, "World", &greetings)
+		require.NoError(t, err)
+
+		assert.Equal(t, "Hello World", greetings)
+	})
 }
 
 func main() {
@@ -69,6 +80,7 @@ func main() {
 		},
 	})
 
+	// non-blocking call
 	err = myworker.Start()
 	if err != nil {
 		panic(err)
@@ -81,6 +93,7 @@ func main() {
 		tempo.NewPlan(SayHello, "John Doe"),
 	)
 
+	// blocking call
 	err = myrunner.Run("v1.0.0")
 	if err != nil {
 		panic(err)
@@ -92,3 +105,10 @@ func main() {
 Now run it and check your Temporal:
 
 ![Temporal Screenshot](screenshot.png)
+
+## Roadmap
+
+- [ ] Reporting
+- [ ] Slack integration
+- [ ] Support to Temporal Signals
+- [ ] Ability to Skip test cases
