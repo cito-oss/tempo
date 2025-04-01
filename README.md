@@ -1,7 +1,7 @@
+# Tempo
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/cito-oss/tempo)](https://goreportcard.com/report/github.com/cito-oss/tempo)
 [![codecov](https://codecov.io/github/cito-oss/tempo/graph/badge.svg?token=BS3ZUEQD8U)](https://codecov.io/github/cito-oss/tempo)
-
-# Tempo
 
 Tempo is a Go library for running Go-like tests in a distributed manner using Temporal.
 
