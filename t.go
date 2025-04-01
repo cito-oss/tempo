@@ -30,14 +30,24 @@ type T struct {
 	logger  log.Logger
 	options *workflow.ActivityOptions
 
-	exit workflow.Channel
-	msgs workflow.Channel
+	exit   workflow.Channel
+	errs   workflow.Channel
+	failed bool
+	parent *T
+}
+
+func (t *T) fail() {
+	t.failed = true
+	if t.parent != nil {
+		t.parent.fail()
+	}
 }
 
 func (t *T) Errorf(format string, args ...any) {
+	t.fail()
 	msg := fmt.Sprintf(format, args...)
 	t.logger.Error(msg, "name", t.name)
-	t.msgs.Send(t.ctx, msg)
+	t.errs.Send(t.ctx, msg)
 }
 
 func (t *T) Warnf(format string, args ...any) {
@@ -46,6 +56,7 @@ func (t *T) Warnf(format string, args ...any) {
 }
 
 func (t *T) FailNow() {
+	t.fail()
 	t.logger.Error("test failed", "name", t.name)
 	t.exit.Send(t.ctx, true)
 }
@@ -62,7 +73,8 @@ func (t *T) Run(name string, fn func(*T)) {
 		logger:  t.logger,
 		options: t.options,
 		exit:    t.exit,
-		msgs:    t.msgs,
+		errs:    t.errs,
+		parent:  t,
 	})
 }
 
@@ -81,7 +93,7 @@ func (t *T) Go(fn func(t *T)) {
 			logger:  t.logger,
 			options: t.options,
 			exit:    t.exit,
-			msgs:    t.msgs,
+			errs:    t.errs,
 		})
 	})
 }
@@ -91,7 +103,7 @@ func (t *T) RunAsChild(fn any, input any, output any) {
 
 	err := t.invoke(t.ctx, name, input, output)
 	if err != nil {
-		t.Errorf("%s", err)
+		t.Errorf("run as child: %s", err)
 		t.FailNow()
 	}
 }

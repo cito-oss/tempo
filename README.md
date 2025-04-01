@@ -1,5 +1,6 @@
 # Tempo
 
+[![go.dev](https://img.shields.io/static/v1?label=go.dev&message=reference&color=00add8)](https://pkg.go.dev/github.com/cito-oss/tempo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cito-oss/tempo)](https://goreportcard.com/report/github.com/cito-oss/tempo)
 [![codecov](https://codecov.io/github/cito-oss/tempo/graph/badge.svg?token=BS3ZUEQD8U)](https://codecov.io/github/cito-oss/tempo)
 

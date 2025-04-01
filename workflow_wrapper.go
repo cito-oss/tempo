@@ -27,7 +27,7 @@ func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, erro
 	logger := workflow.GetLogger(ctx)
 
 	exitChan := workflow.NewChannel(ctx)
-	msgsChan := workflow.NewChannel(ctx)
+	errsChan := workflow.NewChannel(ctx)
 
 	var done bool
 	var output O
@@ -38,7 +38,7 @@ func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, erro
 			ctx:    ctx,
 			logger: logger,
 			exit:   exitChan,
-			msgs:   msgsChan,
+			errs:   errsChan,
 		}
 
 		switch {
@@ -58,23 +58,23 @@ func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, erro
 		done = true
 
 		exitChan.Close()
-		msgsChan.Close()
+		errsChan.Close()
 	})
 
 	selector := workflow.NewSelector(ctx)
 
 	var exit bool
-	var msgs []string
+	var errs []string
 
 	selector.AddReceive(exitChan, func(c workflow.ReceiveChannel, more bool) {
 		c.Receive(ctx, &exit)
 	})
 
-	selector.AddReceive(msgsChan, func(c workflow.ReceiveChannel, more bool) {
+	selector.AddReceive(errsChan, func(c workflow.ReceiveChannel, more bool) {
 		var msg string
 		c.Receive(ctx, &msg)
 
-		msgs = append(msgs, msg)
+		errs = append(errs, msg)
 	})
 
 	var zero O
@@ -83,7 +83,7 @@ func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, erro
 		selector.Select(ctx)
 
 		if exit {
-			return zero, NewTestFailedError(msgs)
+			return zero, NewTestFailedError(errs)
 		}
 
 		if done {
@@ -91,8 +91,8 @@ func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, erro
 		}
 	}
 
-	if len(msgs) > 0 {
-		return zero, NewTestFailedError(msgs)
+	if len(errs) > 0 {
+		return zero, NewTestFailedError(errs)
 	}
 
 	return output, nil
