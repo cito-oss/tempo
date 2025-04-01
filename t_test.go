@@ -458,7 +458,7 @@ func TestTRun(t *testing.T) {
 
 		myt := &T{
 			logger: logger,
-			msgs:   msgs,
+			errs:   msgs,
 		}
 
 		var called bool
@@ -486,7 +486,7 @@ func TestTRun(t *testing.T) {
 
 		myt := &T{
 			logger: logger,
-			msgs:   msgs,
+			errs:   msgs,
 		}
 
 		var called bool
