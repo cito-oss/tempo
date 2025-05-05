@@ -79,9 +79,9 @@ func (r *Runner) Run(prefix string) error {
 				wg.Done()
 			}()
 
-			id := fmt.Sprintf("%s@%s", prefix, plan.name)
+			id := fmt.Sprintf("%s@%s", prefix, fn.name)
 
-			err := Run(r.client, r.queue, id, plan, nil)
+			err := Run(r.client, r.queue, id, fn, nil)
 			if err != nil {
 				errs <- errors.Join(ErrTest, err)
 			}
