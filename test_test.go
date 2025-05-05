@@ -12,44 +12,44 @@ func TestNewTest(t *testing.T) {
 	t.Run("new test", func(t *testing.T) {
 		t.Parallel()
 
-		test := NewTest(Example)
-		assert.Equal(t, "Example", test.Name())
+		test := NewTest(MyWorkflow)
+		assert.Equal(t, "MyWorkflow", test.Name())
 		assert.NotNil(t, test.(*workflowWrapper[any, any]).fn)
 	})
 
 	t.Run("new test with input", func(t *testing.T) {
 		t.Parallel()
 
-		test := NewTestWithInput(ExampleWithInput)
-		assert.Equal(t, "ExampleWithInput", test.Name())
+		test := NewTestWithInput(MyWorkflowWithInput)
+		assert.Equal(t, "MyWorkflowWithInput", test.Name())
 		assert.NotNil(t, test.(*workflowWrapper[string, any]).fnWithIn)
 	})
 
 	t.Run("new test with output", func(t *testing.T) {
 		t.Parallel()
 
-		test := NewTestWithOutput(ExampleWithOutput)
-		assert.Equal(t, "ExampleWithOutput", test.Name())
+		test := NewTestWithOutput(MyWorkflowWithOutput)
+		assert.Equal(t, "MyWorkflowWithOutput", test.Name())
 		assert.NotNil(t, test.(*workflowWrapper[any, string]).fnWithOut)
 	})
 
 	t.Run("new test with input and output", func(t *testing.T) {
 		t.Parallel()
 
-		test := NewTestWithInputAndOutput(ExampleWithInputAndOutput)
-		assert.Equal(t, "ExampleWithInputAndOutput", test.Name())
+		test := NewTestWithInputAndOutput(MyWorkflowWithInputAndOutput)
+		assert.Equal(t, "MyWorkflowWithInputAndOutput", test.Name())
 		assert.NotNil(t, test.(*workflowWrapper[string, string]).fnWithInAndOut)
 	})
 }
 
-func Example(t *T) {}
+func MyWorkflow(t *T) {}
 
-func ExampleWithInput(t *T, input string) {}
+func MyWorkflowWithInput(t *T, input string) {}
 
-func ExampleWithOutput(t *T) string {
+func MyWorkflowWithOutput(t *T) string {
 	return ""
 }
 
-func ExampleWithInputAndOutput(t *T, input string) string {
+func MyWorkflowWithInputAndOutput(t *T, input string) string {
 	return ""
 }

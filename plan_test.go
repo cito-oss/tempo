@@ -25,13 +25,13 @@ func TestNewPlan(t *testing.T) {
 	t.Run("function plan", func(t *testing.T) {
 		t.Parallel()
 
-		got := NewPlan(ExampleWithInputAndOutput, "example argument")
+		got := NewPlan(MyWorkflowWithInputAndOutput, "example argument")
 
-		assert.IsType(t, ExampleWithInputAndOutput, got.function)
-		assert.IsType(t, "ExampleWithInputAndOutput", got.name)
+		assert.IsType(t, MyWorkflowWithInputAndOutput, got.function)
+		assert.IsType(t, "MyWorkflowWithInputAndOutput", got.name)
 		assert.Equal(t, "example argument", got.input)
 
-		assert.Equal(t, "ExampleWithInputAndOutput", got.Name())
+		assert.Equal(t, "MyWorkflowWithInputAndOutput", got.Name())
 		assert.Equal(t, "example argument", got.Input())
 	})
 }
