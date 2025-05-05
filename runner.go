@@ -42,9 +42,9 @@ func NewRunner(client client.Client, queue string, plans ...Plan) *Runner {
 
 type Runner struct {
 	client client.Client
+	limit  chan struct{}
 	queue  string
 	plans  []Plan
-	limit  chan struct{}
 }
 
 func (r *Runner) SetLimit(limit int) {
@@ -53,7 +53,7 @@ func (r *Runner) SetLimit(limit int) {
 		return
 	}
 	if len(r.limit) != 0 {
-		panic(fmt.Errorf("tempo: modify limit while %v goroutines in the group are still active", len(r.limit)))
+		panic(ErrSetLimitWithGoroutines)
 	}
 	r.limit = make(chan struct{}, limit)
 }

@@ -6,11 +6,12 @@ import (
 )
 
 var (
-	ErrWorkflowExecute = errors.New("execute workflow")
-	ErrWorkflowAwait   = errors.New("await workflow")
-	ErrWorkflow        = errors.New("workflow")
-	ErrFuture          = errors.New("future")
-	ErrTest            = errors.New("test")
+	ErrSetLimitWithGoroutines = errors.New("set limit with goroutines still active")
+	ErrWorkflowExecute        = errors.New("execute workflow")
+	ErrWorkflowAwait          = errors.New("await workflow")
+	ErrWorkflow               = errors.New("workflow")
+	ErrFuture                 = errors.New("future")
+	ErrTest                   = errors.New("test")
 )
 
 const TestFailedErrorType = "TestFailedError"
