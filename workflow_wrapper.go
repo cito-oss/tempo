@@ -3,12 +3,11 @@ package tempo
 import "go.temporal.io/sdk/workflow"
 
 type workflowWrapper[INPUT any, OUTPUT any] struct {
-	name string
-
 	fn             func(*T)
 	fnWithIn       func(*T, INPUT)
 	fnWithOut      func(*T) OUTPUT
 	fnWithInAndOut func(*T, INPUT) OUTPUT
+	name           string
 }
 
 // Name returns the name of the Workflow

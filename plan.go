@@ -1,9 +1,9 @@
 package tempo
 
 type Plan struct {
-	name     string
 	function any
 	input    any
+	name     string
 }
 
 func NewPlan(fn any, input any) Plan {

@@ -60,7 +60,7 @@ func TestRunnerRun(t *testing.T) {
 
 		err := runner.Run("TestPrefix")
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrWorkflowExecute)
+		require.ErrorIs(t, err, ErrWorkflowExecute)
 
 		temporalClient.AssertExpectations(t)
 	})
@@ -86,7 +86,7 @@ func TestRunnerRun(t *testing.T) {
 
 		err := runner.Run("TestPrefix")
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrWorkflow)
+		require.ErrorIs(t, err, ErrWorkflow)
 
 		temporalClient.AssertExpectations(t)
 		workflowRun.AssertExpectations(t)
@@ -130,7 +130,7 @@ func TestRunnerRun(t *testing.T) {
 
 		runner.SetLimit(2)
 
-		require.Equal(t, cap(runner.limit), 2)
+		require.Equal(t, 2, cap(runner.limit))
 
 		err := runner.Run("TestPrefix")
 		require.NoError(t, err)

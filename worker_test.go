@@ -33,8 +33,8 @@ func TestWorker(t *testing.T) {
 }
 
 type MockWorker struct {
-	mock.Mock
 	worker.Worker
+	mock.Mock
 }
 
 func (m *MockWorker) RegisterWorkflowWithOptions(w any, options workflow.RegisterOptions) {

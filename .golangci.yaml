@@ -1,0 +1,31 @@
+version: "2"
+
+linters:
+  enable:
+    - canonicalheader
+    - containedctx
+    - err113
+    - errname
+    - errorlint
+    - goconst
+    - gocritic
+    - inamedparam
+    - intrange
+    - nilnil
+    - nolintlint
+    - paralleltest
+    - perfsprint
+    - protogetter
+    - staticcheck
+    - testifylint
+    - tparallel
+    - unconvert
+    - unparam
+    - whitespace
+    - wrapcheck
+
+  exclusions:
+    rules:
+      - linters:
+          - err113
+        path: (.+)_test\.go

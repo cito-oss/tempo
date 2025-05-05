@@ -104,8 +104,7 @@ func TestTActivity(t *testing.T) {
 
 			err := myt.Task("myActivity", "world", &given)
 			require.Error(t, err)
-
-			assert.ErrorIs(t, err, ErrWorkflowAwait)
+			require.ErrorIs(t, err, ErrWorkflowAwait)
 			assert.Empty(t, given)
 
 			return nil
@@ -138,8 +137,7 @@ func TestTActivity(t *testing.T) {
 
 			err := myt.Task("myActivity", "world", &given)
 			require.Error(t, err)
-
-			assert.ErrorIs(t, err, ErrFuture)
+			require.ErrorIs(t, err, ErrFuture)
 			assert.Empty(t, given)
 
 			return nil
@@ -231,10 +229,8 @@ func TestTRunAsChild(t *testing.T) {
 
 			err := myt.Task("myActivity", name, &given)
 			require.Error(t, err)
-
-			assert.ErrorIs(t, err, ErrWorkflowAwait)
-
-			assert.Equal(t, "", given)
+			require.ErrorIs(t, err, ErrWorkflowAwait)
+			assert.Empty(t, given)
 
 			return "", nil
 		}
@@ -282,10 +278,8 @@ func TestTRunAsChild(t *testing.T) {
 
 			err := myt.Task("myActivity", name, &given)
 			require.Error(t, err)
-
-			assert.ErrorIs(t, err, ErrFuture)
-
-			assert.Equal(t, "", given)
+			require.ErrorIs(t, err, ErrFuture)
+			assert.Empty(t, given)
 
 			return "", errors.New("activity failed")
 		}
@@ -297,7 +291,7 @@ func TestTRunAsChild(t *testing.T) {
 
 			myt.RunAsChild("myChildWorkflow", "world", &given)
 
-			assert.Equal(t, "", given)
+			assert.Empty(t, given)
 
 			return nil
 		}
@@ -335,10 +329,8 @@ func TestTRunAsChild(t *testing.T) {
 
 			err := myt.Task("myActivity", name, &given)
 			require.Error(t, err)
-
-			assert.ErrorIs(t, err, ErrFuture)
-
-			assert.Equal(t, "", given)
+			require.ErrorIs(t, err, ErrFuture)
+			assert.Empty(t, given)
 
 			return "", errors.New("activity failed")
 		}
@@ -358,7 +350,7 @@ func TestTRunAsChild(t *testing.T) {
 
 			myt.RunAsChild("myChildWorkflow", "world", &given)
 
-			assert.Equal(t, "", given)
+			assert.Empty(t, given)
 
 			return nil
 		}

@@ -20,7 +20,13 @@ jobs:
         with:
           go-version: ">=1.23"
 
-      - run: go test -race -count 1 -cover -covermode atomic -coverprofile coverage.txt $(go list ./... | grep -v ./example/)
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1.2
+
+      - name: Test
+        run: go test -race -count 1 -cover -covermode atomic -coverprofile coverage.txt $(go list ./... | grep -v ./example/)
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

@@ -25,15 +25,14 @@ type TestingT interface {
 var _ TestingT = &T{}
 
 type T struct {
-	name    string
 	ctx     workflow.Context
 	logger  log.Logger
+	exit    workflow.Channel
+	errs    workflow.Channel
 	options *workflow.ActivityOptions
-
-	exit   workflow.Channel
-	errs   workflow.Channel
-	failed bool
-	parent *T
+	parent  *T
+	name    string
+	failed  bool
 }
 
 func (t *T) fail() {
