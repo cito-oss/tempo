@@ -19,13 +19,13 @@ func TestWorker(t *testing.T) {
 
 	Worker(w, Registry{
 		Tests: []Test{
-			NewTest(Example),
-			NewTestWithInput(ExampleWithInput),
-			NewTestWithOutput(ExampleWithOutput),
-			NewTestWithInputAndOutput(ExampleWithInputAndOutput),
+			NewTest(MyWorkflow),
+			NewTestWithInput(MyWorkflowWithInput),
+			NewTestWithOutput(MyWorkflowWithOutput),
+			NewTestWithInputAndOutput(MyWorkflowWithInputAndOutput),
 		},
 		Tasks: []Task{
-			ExampleActivity,
+			MyActivity,
 		},
 	})
 
@@ -45,6 +45,6 @@ func (m *MockWorker) RegisterActivity(a any) {
 	m.Called(a)
 }
 
-func ExampleActivity(ctx context.Context) error {
+func MyActivity(ctx context.Context) error {
 	return nil
 }
