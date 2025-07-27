@@ -3,6 +3,8 @@ package tempo
 import (
 	"errors"
 	"fmt"
+	"runtime"
+	"sync"
 	"time"
 
 	"go.temporal.io/sdk/log"
@@ -33,6 +35,7 @@ type T struct {
 	parent  *T
 	name    string
 	failed  bool
+	exitted bool
 }
 
 func (t *T) fail() {
@@ -57,7 +60,13 @@ func (t *T) Warnf(format string, args ...any) {
 func (t *T) FailNow() {
 	t.fail()
 	t.logger.Error("test failed", "name", t.name)
+	t.exits()
+}
+
+func (t *T) exits() {
+	t.exitted = true
 	t.exit.Send(t.ctx, true)
+	runtime.Goexit()
 }
 
 func (t *T) SetActivityOptions(options workflow.ActivityOptions) {
@@ -66,7 +75,8 @@ func (t *T) SetActivityOptions(options workflow.ActivityOptions) {
 
 func (t *T) Run(name string, fn func(*T)) {
 	t.logger.Info("run test", "name", name)
-	fn(&T{
+
+	newt := &T{
 		name:    name,
 		ctx:     t.ctx,
 		logger:  t.logger,
@@ -74,7 +84,18 @@ func (t *T) Run(name string, fn func(*T)) {
 		exit:    t.exit,
 		errs:    t.errs,
 		parent:  t,
-	})
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		fn(newt)
+	}()
+
+	wg.Wait()
 }
 
 func (t *T) WaitGroup() *WaitGroup {
@@ -86,14 +107,25 @@ func (t *T) WaitGroup() *WaitGroup {
 
 func (t *T) Go(fn func(t *T)) {
 	workflow.Go(t.ctx, func(ctx workflow.Context) {
-		fn(&T{
+		newt := &T{
 			ctx:     ctx,
 			name:    t.name,
 			logger:  t.logger,
 			options: t.options,
 			exit:    t.exit,
 			errs:    t.errs,
-		})
+		}
+
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			fn(newt)
+		}()
+
+		wg.Wait()
 	})
 }
 

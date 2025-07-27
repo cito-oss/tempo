@@ -14,13 +14,22 @@ var (
 	ErrTest                   = errors.New("test")
 )
 
-const TestFailedErrorType = "TestFailedError"
+const (
+	TestFailedErrorType  = "TestFailedError"
+	TestExittedErrorType = "TestExittedError"
+)
+
+type TestExittedError struct{}
+
+func (e TestExittedError) Error() string {
+	return "test exitted"
+}
 
 type TestFailedError struct {
 	msgs []string
 }
 
-func (e *TestFailedError) Error() string {
+func (e TestFailedError) Error() string {
 	if len(e.msgs) == 0 {
 		return "test failed"
 	}
@@ -29,5 +38,5 @@ func (e *TestFailedError) Error() string {
 }
 
 func NewTestFailedError(msgs []string) error {
-	return &TestFailedError{msgs: msgs}
+	return TestFailedError{msgs: msgs}
 }

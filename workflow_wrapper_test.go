@@ -215,7 +215,7 @@ func TestWorkflowWrapper(t *testing.T) {
 		fail := &temporal.ApplicationError{}
 		require.ErrorAs(t, err, &fail)
 
-		assert.Equal(t, TestFailedErrorType, fail.Type())
-		assert.ErrorContains(t, fail, "test failed")
+		assert.Equal(t, TestExittedErrorType, fail.Type())
+		assert.ErrorContains(t, fail, "test exitted")
 	})
 }

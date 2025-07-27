@@ -425,11 +425,13 @@ func TestTRun(t *testing.T) {
 			exit:   exit,
 		}
 
-		var called bool
+		called := false
+		uncalled := true
 
 		myt.Run("my_test", func(myt *T) {
 			called = true
 			myt.FailNow()
+			uncalled = false
 		})
 
 		require.Len(t, logger.calls, 2)
@@ -440,6 +442,7 @@ func TestTRun(t *testing.T) {
 		assert.Equal(t, "true", exit.calls[0])
 
 		assert.True(t, called)
+		assert.True(t, uncalled)
 	})
 
 	t.Run("errorf", func(t *testing.T) {
