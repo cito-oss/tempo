@@ -16,7 +16,7 @@ import (
 
 func main() {
 	Example1()
-	Example2()
+	// Example2()
 }
 
 func Example1() {

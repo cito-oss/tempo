@@ -1,6 +1,8 @@
 package tempo
 
-import "go.temporal.io/sdk/workflow"
+import (
+	"go.temporal.io/sdk/workflow"
+)
 
 type workflowWrapper[INPUT any, OUTPUT any] struct {
 	fn             func(*T)
@@ -76,22 +78,27 @@ func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, erro
 		errs = append(errs, msg)
 	})
 
-	var zero O
-
 	for {
 		selector.Select(ctx)
 
-		if exit {
-			return zero, NewTestFailedError(errs)
-		}
-
-		if done {
+		if exit || done {
 			break
 		}
 	}
 
+	var err error
+
+	if exit {
+		err = TestExittedError{}
+	}
+
 	if len(errs) > 0 {
-		return zero, NewTestFailedError(errs)
+		err = NewTestFailedError(errs)
+	}
+
+	if err != nil {
+		var zero O
+		return zero, err
 	}
 
 	return output, nil
