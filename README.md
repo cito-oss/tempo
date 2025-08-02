@@ -147,7 +147,7 @@ allure open allure-report
 ![Allure Report Screenshot 2](screenshot-report2.png)
 
 > [!IMPORTANT]
-> Please note that reporting is handled by the runner. So, if you have separate applications for the runner and the worker, the `allure-results` folder will be created in the location where the runner is executed.
+> Please note that reporting is handled by the runner. So, if you have separate applications for the runner and worker, the `allure-results` folder will be created where the runner is being executed.
 
 ## Roadmap
 
