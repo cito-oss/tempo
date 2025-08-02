@@ -6,24 +6,15 @@ import (
 )
 
 var (
-	ErrSetLimitWithGoroutines = errors.New("set limit with goroutines still active")
-	ErrWorkflowExecute        = errors.New("execute workflow")
-	ErrWorkflowAwait          = errors.New("await workflow")
-	ErrWorkflow               = errors.New("workflow")
-	ErrFuture                 = errors.New("future")
-	ErrTest                   = errors.New("test")
+	ErrSetLimitWithGoroutines = errors.New("set limit with goroutines")
+	ErrWorkflowExecute        = errors.New("workflow execute")
+	ErrWorkflowResult         = errors.New("workflow result")
+	ErrTaskExecute            = errors.New("task execute")
+	ErrTaskResult             = errors.New("task result")
+	ErrPlanRun                = errors.New("plan run")
 )
 
-const (
-	TestFailedErrorType  = "TestFailedError"
-	TestExittedErrorType = "TestExittedError"
-)
-
-type TestExittedError struct{}
-
-func (e TestExittedError) Error() string {
-	return "test exitted"
-}
+const TestFailedErrorType = "TestFailedError"
 
 type TestFailedError struct {
 	msgs []string

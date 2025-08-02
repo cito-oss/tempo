@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"time"
 
 	"github.com/cito-oss/tempo"
-	"github.com/cito-oss/tempo/_example/subtests"
 	"github.com/cito-oss/tempo/_example/tasks"
 	"github.com/cito-oss/tempo/_example/tests"
 	"go.temporal.io/sdk/client"
@@ -39,8 +37,8 @@ func Example1() {
 			tempo.NewTest(tests.SayHelloWorld),
 			tempo.NewTest(tests.UnknownPerson),
 			tempo.NewTestWithInput(tests.SayHello),
-			tempo.NewTestWithOutput(subtests.QuoteOfTheDay),
-			tempo.NewTestWithInputAndOutput(subtests.SayHelloToPerson),
+			tempo.NewTestWithOutput(tests.QuoteOfTheDay),
+			tempo.NewTestWithInputAndOutput(tests.SayHelloToPerson),
 		},
 		Tasks: []tempo.Task{
 			tasks.Greeter,
@@ -66,17 +64,13 @@ func Example1() {
 		tempo.NewPlan(tests.UnknownPerson, nil),
 	)
 
+	myrunner.SetReporting(true)
+
 	err = myrunner.Run("v1.0.0-" + time.Now().Format("20060102T150405"))
 	if err != nil {
 		panic(err)
 	}
 	// /RUNNER
-
-	// alternatively, if you don't want to use the Runner, you can call directly
-	// the tempo.Run, like in the example below, or even make your own implementation (see Example2 below).
-	//
-	// plan := tempo.NewPlan(tests.SayHello, "John Doe")
-	// err := tempo.Run(cli, queue, "SayHelloToJohnDoe", plan, nil)
 }
 
 func Example2() {
@@ -96,8 +90,8 @@ func Example2() {
 		tempo.NewTest(tests.SayHelloWorld),
 		tempo.NewTest(tests.UnknownPerson),
 		tempo.NewTestWithInput(tests.SayHello),
-		tempo.NewTestWithOutput(subtests.QuoteOfTheDay),
-		tempo.NewTestWithInputAndOutput(subtests.SayHelloToPerson),
+		tempo.NewTestWithOutput(tests.QuoteOfTheDay),
+		tempo.NewTestWithInputAndOutput(tests.SayHelloToPerson),
 	}
 
 	myworker := worker.New(cli, queue, worker.Options{})
@@ -106,7 +100,9 @@ func Example2() {
 		// register all tests
 		myworker.RegisterWorkflowWithOptions(
 			item.Function(),
-			workflow.RegisterOptions{Name: item.Name()},
+			workflow.RegisterOptions{
+				Name: item.Name(),
+			},
 		)
 	}
 
@@ -136,20 +132,13 @@ func Example2() {
 
 	for _, plan := range plans {
 		g.Go(func() error {
-			run, err := cli.ExecuteWorkflow(
-				context.Background(),
-				client.StartWorkflowOptions{
-					ID:        plan.Name() + "@" + time.Now().Format("20060102T150405"),
-					TaskQueue: queue,
-				},
-				plan.Name(),
-				plan.Input(),
-			)
-			if err != nil {
-				return err
+			opts := []tempo.Option{
+				tempo.WithReporting(true),
 			}
 
-			err = run.Get(context.Background(), nil)
+			id := plan.Name() + "@" + time.Now().Format("20060102T150405")
+
+			err := tempo.Run(cli, queue, id, plan, nil, opts...)
 			if err != nil {
 				return err
 			}

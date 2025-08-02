@@ -24,7 +24,7 @@ func UnknownPerson(t *tempo.T) {
 
 	var greetings string
 
-	err := t.Task(tasks.PersonAge, "Jhonny Doe", &greetings)
+	err := t.Task(tasks.PersonAge, "Guina", &greetings)
 	require.Error(t, err)
 
 	assert.Empty(t, greetings)

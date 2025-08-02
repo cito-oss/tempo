@@ -103,6 +103,8 @@ func main() {
 		tempo.NewPlan(SayHello, "Tempo"),
 	)
 
+	myrunner.SetReport(true) // enable Allure reporting
+
 	// blocking call
 	err = myrunner.Run("v1.0.0")
 	if err != nil {
@@ -114,11 +116,42 @@ func main() {
 
 Now run it and check your Temporal:
 
-![Temporal Screenshot](screenshot.png)
+![Temporal Screenshot](screenshot-temporal.png)
+
+## Reporting
+
+If you are using the runner, enabled it with:
+
+```go
+	myrunner.SetReporting(true)
+```
+
+or if you are invoking tests manually:
+
+```go
+	opts := []tempo.Option{
+		tempo.WithReporting(true),
+	}
+
+	err := tempo.Run(cli, queue, id, plan, nil, opts...)
+```
+
+Then, run your tests. Once they are completed, you will notice that an `allure-results` folder has been created. You can now generate and view the report using the following commands:
+
+```shell
+allure generate allure-results --clean -o allure-report
+allure open allure-report
+```
+
+![Allure Report Screenshot 1](screenshot-report1.png)
+![Allure Report Screenshot 2](screenshot-report2.png)
+
+> [!IMPORTANT]
+> Please note that reporting is handled by the runner. So, if you have separate applications for the runner and the worker, the `allure-results` folder will be created in the location where the runner is executed.
 
 ## Roadmap
 
-- [ ] Reporting
+- [x] Reporting
 - [ ] Slack integration
 - [ ] Support to Temporal Signals
 - [ ] Ability to Skip test cases
