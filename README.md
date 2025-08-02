@@ -103,7 +103,7 @@ func main() {
 		tempo.NewPlan(SayHello, "Tempo"),
 	)
 
-	myrunner.SetReport(true) // enable Allure reporting
+	myrunner.SetReporting(true) // enable Allure reporting
 
 	// blocking call
 	err = myrunner.Run("v1.0.0")
