@@ -1,6 +1,13 @@
 package tempo
 
 import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"strings"
+	"sync"
+
+	"github.com/ozontech/allure-go/pkg/allure"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -27,21 +34,26 @@ func (c *workflowWrapper[I, O]) Function() any {
 func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, error) {
 	logger := workflow.GetLogger(ctx)
 
-	exitChan := workflow.NewChannel(ctx)
-	errsChan := workflow.NewChannel(ctx)
+	step := &allure.Step{
+		Name:  fmt.Sprintf("Workflow(%s)", c.name),
+		Start: workflow.Now(ctx).UnixMilli(),
+	}
 
-	var done bool
+	if param, ok := newParameter("input", input); ok {
+		step.Parameters = append(step.Parameters, param)
+	}
+
+	t := &T{
+		name:   c.name,
+		ctx:    ctx,
+		logger: logger,
+		step:   step,
+		wg:     workflow.NewWaitGroup(ctx),
+	}
+
 	var output O
 
-	workflow.Go(ctx, func(ctx workflow.Context) {
-		t := &T{
-			name:   c.name,
-			ctx:    ctx,
-			logger: logger,
-			exit:   exitChan,
-			errs:   errsChan,
-		}
-
+	invoke(func() {
 		switch {
 		case c.fn != nil:
 			c.fn(t)
@@ -55,51 +67,76 @@ func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, erro
 		case c.fnWithInAndOut != nil:
 			output = c.fnWithInAndOut(t, input)
 		}
-
-		done = true
-
-		exitChan.Close()
-		errsChan.Close()
 	})
 
-	selector := workflow.NewSelector(ctx)
+	step.Stop = workflow.Now(ctx).UnixMilli()
+	step.Status = allure.Passed
 
-	var exit bool
-	var errs []string
-
-	selector.AddReceive(exitChan, func(c workflow.ReceiveChannel, more bool) {
-		c.Receive(ctx, &exit)
-	})
-
-	selector.AddReceive(errsChan, func(c workflow.ReceiveChannel, more bool) {
-		var msg string
-		c.Receive(ctx, &msg)
-
-		errs = append(errs, msg)
-	})
-
-	for {
-		selector.Select(ctx)
-
-		if exit || done {
-			break
+	if t.failed {
+		step.Status = allure.Failed
+		step.StatusDetails = allure.StatusDetail{
+			Message: "test failed",
+			Trace:   strings.Join(t.failures, "\n"),
 		}
 	}
 
-	var err error
-
-	if exit {
-		err = TestExittedError{}
+	if param, ok := newParameter("output", output); ok {
+		step.Parameters = append(step.Parameters, param)
 	}
 
-	if len(errs) > 0 {
-		err = NewTestFailedError(errs)
+	memo := map[string]any{
+		reportStepField: step,
 	}
 
-	if err != nil {
+	if err := workflow.UpsertMemo(ctx, memo); err != nil {
+		logger.Warn("report: failed to upsert memo", "error", err)
+	}
+
+	if t.failed {
 		var zero O
-		return zero, err
+		return zero, NewTestFailedError(t.failures)
 	}
 
 	return output, nil
+}
+
+// invoke calls the given function but in a goroutine, so it can be aborted using runtime.Goexit
+func invoke(fn func()) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		fn()
+	}()
+	wg.Wait()
+}
+
+// newParameter uses reflection to parse given name/value into an allure newParameter
+func newParameter(name string, data any) (*allure.Parameter, bool) {
+	vof := reflect.ValueOf(data)
+
+	if !vof.IsValid() {
+		return nil, false
+	}
+
+	if vof.IsZero() {
+		return nil, false
+	}
+
+	tmp, err := json.Marshal(data)
+	if err != nil {
+		return nil, false
+	}
+
+	var value any
+
+	err = json.Unmarshal(tmp, &value)
+	if err != nil {
+		return nil, false
+	}
+
+	return &allure.Parameter{
+		Name:  name,
+		Value: value,
+	}, true
 }

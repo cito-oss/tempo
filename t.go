@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sync"
+	"strings"
 	"time"
 
+	"github.com/ozontech/allure-go/pkg/allure"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
@@ -20,22 +21,33 @@ var DefaultActivityOptions = workflow.ActivityOptions{
 }
 
 type TestingT interface {
-	Errorf(format string, args ...interface{})
+	Errorf(format string, args ...any)
 	FailNow()
 }
 
 var _ TestingT = &T{}
 
 type T struct {
-	ctx     workflow.Context
-	logger  log.Logger
-	exit    workflow.Channel
-	errs    workflow.Channel
-	options *workflow.ActivityOptions
-	parent  *T
-	name    string
-	failed  bool
-	exitted bool
+	ctx      workflow.Context
+	logger   log.Logger
+	options  *workflow.ActivityOptions
+	parent   *T
+	name     string
+	failures []string
+	failed   bool
+	step     *allure.Step
+	wg       workflow.WaitGroup
+}
+
+func (t *T) child(name string) *T {
+	return &T{
+		name:    name,
+		ctx:     t.ctx,
+		logger:  t.logger,
+		options: t.options,
+		parent:  t,
+		wg:      workflow.NewWaitGroup(t.ctx),
+	}
 }
 
 func (t *T) fail() {
@@ -49,7 +61,7 @@ func (t *T) Errorf(format string, args ...any) {
 	t.fail()
 	msg := fmt.Sprintf(format, args...)
 	t.logger.Error(msg, "name", t.name)
-	t.errs.Send(t.ctx, msg)
+	t.failures = append(t.failures, msg)
 }
 
 func (t *T) Warnf(format string, args ...any) {
@@ -59,13 +71,6 @@ func (t *T) Warnf(format string, args ...any) {
 
 func (t *T) FailNow() {
 	t.fail()
-	t.logger.Error("test failed", "name", t.name)
-	t.exits()
-}
-
-func (t *T) exits() {
-	t.exitted = true
-	t.exit.Send(t.ctx, true)
 	runtime.Goexit()
 }
 
@@ -73,29 +78,46 @@ func (t *T) SetActivityOptions(options workflow.ActivityOptions) {
 	t.options = &options
 }
 
+func (t *T) start(name string) {
+	t.step = &allure.Step{
+		Name:  name,
+		Start: workflow.Now(t.ctx).UnixMilli(),
+	}
+
+	if t.parent != nil && t.parent.step != nil {
+		t.parent.step.Steps = append(t.parent.step.Steps, t.step)
+	}
+}
+
+func (t *T) stop() {
+	t.wg.Wait(t.ctx)
+
+	if t.step == nil {
+		return
+	}
+
+	t.step.Stop = workflow.Now(t.ctx).UnixMilli()
+
+	t.step.Status = allure.Passed
+
+	if t.failed {
+		t.step.Status = allure.Failed
+		t.step.StatusDetails = allure.StatusDetail{
+			Message: "test failed",
+			Trace:   strings.Join(t.failures, "\n"),
+		}
+	}
+}
+
 func (t *T) Run(name string, fn func(*T)) {
 	t.logger.Info("run test", "name", name)
 
-	newt := &T{
-		name:    name,
-		ctx:     t.ctx,
-		logger:  t.logger,
-		options: t.options,
-		exit:    t.exit,
-		errs:    t.errs,
-		parent:  t,
-	}
+	child := t.child(name)
 
-	var wg sync.WaitGroup
+	child.start(fmt.Sprintf("Test(%s)", name))
+	defer child.stop()
 
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		fn(newt)
-	}()
-
-	wg.Wait()
+	invoke(func() { fn(child) })
 }
 
 func (t *T) WaitGroup() *WaitGroup {
@@ -106,68 +128,34 @@ func (t *T) WaitGroup() *WaitGroup {
 }
 
 func (t *T) Go(fn func(t *T)) {
+	t.wg.Add(1)
+
 	workflow.Go(t.ctx, func(ctx workflow.Context) {
-		newt := &T{
-			ctx:     ctx,
-			name:    t.name,
-			logger:  t.logger,
-			options: t.options,
-			exit:    t.exit,
-			errs:    t.errs,
-		}
+		child := t.child(t.name) // create a child with same name...
 
-		var wg sync.WaitGroup
+		child.ctx = ctx // ...but replace the context
 
-		wg.Add(1)
+		child.start(fmt.Sprintf("Go(%s)", t.name))
+		defer child.stop()
+		defer t.wg.Done()
 
-		go func() {
-			defer wg.Done()
-			fn(newt)
-		}()
-
-		wg.Wait()
+		invoke(func() { fn(child) })
 	})
 }
 
 func (t *T) RunAsChild(fn any, input any, output any) {
 	name := getFunctionName(fn)
 
-	err := t.invoke(t.ctx, name, input, output)
-	if err != nil {
-		t.Errorf("run as child: %s", err)
-		t.FailNow()
-	}
-}
-
-func (t *T) Task(task any, input any, output any) error {
-	opts := DefaultActivityOptions
-
-	if t.options != nil {
-		opts = *t.options
+	step := &allure.Step{
+		Name:  fmt.Sprintf("ChildWorkflow(%s)", name),
+		Start: workflow.Now(t.ctx).UnixMilli(),
 	}
 
-	// set Summary with test name
-	opts.Summary = t.name
-
-	ctx := workflow.WithActivityOptions(t.ctx, opts)
-
-	future := workflow.ExecuteActivity(ctx, task, input)
-
-	err := workflow.Await(t.ctx, future.IsReady)
-	if err != nil {
-		return errors.Join(ErrWorkflowAwait, err)
+	if t.step != nil {
+		t.step.Steps = append(t.step.Steps, step)
 	}
 
-	err = future.Get(t.ctx, output)
-	if err != nil {
-		return errors.Join(ErrFuture, err)
-	}
-
-	return nil
-}
-
-func (t *T) invoke(ctx workflow.Context, name string, input any, output any) error {
-	info := workflow.GetInfo(ctx)
+	info := workflow.GetInfo(t.ctx)
 
 	var retryPolicy *temporal.RetryPolicy
 	if t.options != nil {
@@ -181,18 +169,110 @@ func (t *T) invoke(ctx workflow.Context, name string, input any, output any) err
 		StaticSummary: t.name,
 	}
 
-	ctx = workflow.WithChildOptions(ctx, opts)
+	ctx := workflow.WithChildOptions(t.ctx, opts)
 
 	future := workflow.ExecuteChildWorkflow(ctx, name, input)
 
-	err := workflow.Await(ctx, future.IsReady)
+	var err error
+
+	defer func() {
+		step.Stop = workflow.Now(t.ctx).UnixMilli()
+		step.Status = allure.Passed
+
+		if err != nil {
+			step.Status = allure.Failed
+			step.StatusDetails = allure.StatusDetail{
+				Message: "child worlfkow failed",
+				Trace:   err.Error(),
+			}
+		}
+
+		var childexec workflow.Execution
+
+		err := future.GetChildWorkflowExecution().Get(ctx, &childexec)
+		if err != nil {
+			t.logger.Warn("report: failed to get child workflow execution",
+				"error", err,
+				"name", name,
+			)
+			return
+		}
+
+		step.Attachments = append(step.Attachments, &allure.Attachment{
+			Name:   reportReplaceFlag,
+			Source: reportReplaceID(childexec.ID, childexec.RunID),
+		})
+	}()
+
+	err = workflow.Await(ctx, future.IsReady)
 	if err != nil {
-		return errors.Join(ErrWorkflowAwait, err)
+		t.Errorf(err.Error())
+		t.FailNow()
 	}
 
 	err = future.Get(ctx, output)
 	if err != nil {
-		return errors.Join(ErrFuture, err)
+		t.Errorf(err.Error())
+		t.FailNow()
+	}
+}
+
+func (t *T) Task(task any, input any, output any) error {
+	name := getFunctionName(task)
+
+	step := &allure.Step{
+		Name:  fmt.Sprintf("Task(%s)", name),
+		Start: workflow.Now(t.ctx).UnixMilli(),
+	}
+
+	if t.step != nil {
+		t.step.Steps = append(t.step.Steps, step)
+	}
+
+	if param, ok := newParameter("input", input); ok {
+		step.Parameters = append(step.Parameters, param)
+	}
+
+	opts := DefaultActivityOptions
+
+	if t.options != nil {
+		opts = *t.options
+	}
+
+	// set Summary with test name
+	opts.Summary = t.name
+
+	ctx := workflow.WithActivityOptions(t.ctx, opts)
+
+	future := workflow.ExecuteActivity(ctx, task, input)
+
+	var err error
+
+	defer func() {
+		step.Stop = workflow.Now(t.ctx).UnixMilli()
+		step.Status = allure.Passed
+
+		if err != nil {
+			step.Status = allure.Failed
+			step.StatusDetails = allure.StatusDetail{
+				Message: "task failed",
+				Trace:   err.Error(),
+			}
+		}
+
+		if param, ok := newParameter("output", output); ok {
+			step.Parameters = append(step.Parameters, param)
+		}
+	}()
+
+	err = workflow.Await(t.ctx, future.IsReady)
+	if err != nil {
+		return errors.Join(ErrTaskExecute, err)
+	}
+
+	err = future.Get(t.ctx, output)
+	if err != nil {
+		return errors.Join(ErrTaskResult, err)
 	}
 
 	return nil

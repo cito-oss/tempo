@@ -26,13 +26,12 @@ func TestTGo(t *testing.T) {
 
 	myWorkflow := func(ctx workflow.Context) error {
 		myt := &T{
-			name: "my_test",
-			ctx:  ctx,
+			ctx: ctx,
+			wg:  workflow.NewWaitGroup(ctx),
 		}
 
 		myt.Go(func(myt *T) {
 			called = true
-			assert.Equal(t, "my_test", myt.name)
 		})
 
 		return nil
@@ -83,7 +82,7 @@ func TestTActivity(t *testing.T) {
 		assert.True(t, called)
 	})
 
-	t.Run("fail workflow await", func(t *testing.T) {
+	t.Run("fail after cancel workflow", func(t *testing.T) {
 		t.Parallel()
 
 		env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
@@ -104,7 +103,7 @@ func TestTActivity(t *testing.T) {
 
 			err := myt.Task("myActivity", "world", &given)
 			require.Error(t, err)
-			require.ErrorIs(t, err, ErrWorkflowAwait)
+			require.ErrorIs(t, err, ErrTaskExecute)
 			assert.Empty(t, given)
 
 			return nil
@@ -137,7 +136,7 @@ func TestTActivity(t *testing.T) {
 
 			err := myt.Task("myActivity", "world", &given)
 			require.Error(t, err)
-			require.ErrorIs(t, err, ErrFuture)
+			require.ErrorIs(t, err, ErrTaskResult)
 			assert.Empty(t, given)
 
 			return nil
@@ -206,7 +205,7 @@ func TestTRunAsChild(t *testing.T) {
 		assert.True(t, called)
 	})
 
-	t.Run("fail workflow await", func(t *testing.T) {
+	t.Run("fail after cancel workflow", func(t *testing.T) {
 		t.Parallel()
 
 		env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
@@ -229,7 +228,7 @@ func TestTRunAsChild(t *testing.T) {
 
 			err := myt.Task("myActivity", name, &given)
 			require.Error(t, err)
-			require.ErrorIs(t, err, ErrWorkflowAwait)
+			require.ErrorIs(t, err, ErrTaskExecute)
 			assert.Empty(t, given)
 
 			return "", nil
@@ -278,7 +277,7 @@ func TestTRunAsChild(t *testing.T) {
 
 			err := myt.Task("myActivity", name, &given)
 			require.Error(t, err)
-			require.ErrorIs(t, err, ErrFuture)
+			require.ErrorContains(t, err, "something went wrong")
 			assert.Empty(t, given)
 
 			return "", errors.New("activity failed")
@@ -329,7 +328,7 @@ func TestTRunAsChild(t *testing.T) {
 
 			err := myt.Task("myActivity", name, &given)
 			require.Error(t, err)
-			require.ErrorIs(t, err, ErrFuture)
+			require.ErrorContains(t, err, "something went wrong")
 			assert.Empty(t, given)
 
 			return "", errors.New("activity failed")
@@ -398,14 +397,27 @@ func TestTRun(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		logger := &MockLogger{}
+		var suite testsuite.WorkflowTestSuite
+		env := suite.NewTestWorkflowEnvironment()
 
-		myt := &T{logger: logger}
+		logger := &MockLogger{}
 
 		var called bool
 
-		myt.Run("my_test", func(myt *T) {
-			called = true
+		env.ExecuteWorkflow(func(ctx workflow.Context) error {
+			myt := &T{
+				ctx:    ctx,
+				logger: logger,
+			}
+
+			myt.Run("my_test", func(myt *T) {
+				called = true
+			})
+
+			wg := myt.WaitGroup()
+			assert.Equal(t, ctx, wg.ctx)
+
+			return nil
 		})
 
 		require.NotEmpty(t, logger.calls)
@@ -417,78 +429,127 @@ func TestTRun(t *testing.T) {
 	t.Run("fail now", func(t *testing.T) {
 		t.Parallel()
 
-		logger := &MockLogger{}
-		exit := &MockChannel{}
+		var suite testsuite.WorkflowTestSuite
+		env := suite.NewTestWorkflowEnvironment()
 
-		myt := &T{
-			logger: logger,
-			exit:   exit,
-		}
+		logger := &MockLogger{}
 
 		called := false
 		uncalled := true
 
-		myt.Run("my_test", func(myt *T) {
-			called = true
-			myt.FailNow()
-			uncalled = false
+		var parentt *T
+		var childt *T
+
+		env.ExecuteWorkflow(func(ctx workflow.Context) error {
+			parentt = &T{
+				ctx:    ctx,
+				logger: logger,
+			}
+
+			parentt.Run("my_test", func(myt *T) {
+				childt = myt
+
+				called = true
+
+				myt.FailNow()
+
+				uncalled = false
+			})
+
+			return nil
 		})
 
-		require.Len(t, logger.calls, 2)
+		require.Len(t, logger.calls, 1)
 		assert.Equal(t, "run test: [name my_test]", logger.calls[0])
-		assert.Equal(t, "test failed: [name my_test]", logger.calls[1])
-
-		require.NotEmpty(t, exit.calls)
-		assert.Equal(t, "true", exit.calls[0])
 
 		assert.True(t, called)
 		assert.True(t, uncalled)
+
+		require.NotNil(t, childt)
+		require.NotNil(t, parentt)
+
+		assert.True(t, childt.failed)
+		assert.True(t, parentt.failed)
+
+		assert.Empty(t, childt.failures)
+		assert.Empty(t, parentt.failures)
 	})
 
 	t.Run("errorf", func(t *testing.T) {
 		t.Parallel()
 
+		var suite testsuite.WorkflowTestSuite
+		env := suite.NewTestWorkflowEnvironment()
+
 		logger := &MockLogger{}
-		msgs := &MockChannel{}
 
-		myt := &T{
-			logger: logger,
-			errs:   msgs,
-		}
+		var before bool
+		var after bool
 
-		var called bool
+		var parentt *T
+		var childt *T
 
-		myt.Run("my_test", func(myt *T) {
-			called = true
-			myt.Errorf("ohh no! %s: %s", "what happened?", "nothing!")
+		env.ExecuteWorkflow(func(ctx workflow.Context) error {
+			parentt = &T{
+				ctx:    ctx,
+				logger: logger,
+			}
+
+			parentt.Run("my_test", func(myt *T) {
+				childt = myt
+
+				before = true
+
+				myt.Errorf("ohh no! %s: %s", "what happened?", "nothing!")
+
+				after = true
+			})
+
+			return nil
 		})
 
 		require.Len(t, logger.calls, 2)
+
 		assert.Equal(t, "run test: [name my_test]", logger.calls[0])
 		assert.Equal(t, "ohh no! what happened?: nothing!: [name my_test]", logger.calls[1])
 
-		require.NotEmpty(t, msgs.calls)
-		assert.Equal(t, "ohh no! what happened?: nothing!", msgs.calls[0])
+		assert.True(t, before)
+		assert.True(t, after)
 
-		assert.True(t, called)
+		require.NotNil(t, childt)
+		require.NotNil(t, parentt)
+
+		assert.True(t, childt.failed)
+		assert.True(t, parentt.failed)
+
+		require.Len(t, childt.failures, 1)
+		assert.Equal(t, "ohh no! what happened?: nothing!", childt.failures[0])
+
+		require.Empty(t, parentt.failures)
 	})
 
 	t.Run("warnf", func(t *testing.T) {
 		t.Parallel()
 
-		logger := &MockLogger{}
-		msgs := &MockChannel{}
+		var suite testsuite.WorkflowTestSuite
+		env := suite.NewTestWorkflowEnvironment()
 
-		myt := &T{
-			logger: logger,
-			errs:   msgs,
-		}
+		logger := &MockLogger{}
 
 		var called bool
 
-		myt.Run("my_test", func(myt *T) {
-			called = true
-			myt.Warnf("check this out")
+		env.ExecuteWorkflow(func(ctx workflow.Context) error {
+			myt := &T{
+				ctx:    ctx,
+				logger: logger,
+			}
+
+			myt.Run("my_test", func(myt *T) {
+				called = true
+				myt.Warnf("check this out")
+			})
+
+			return nil
 		})
 
 		require.Len(t, logger.calls, 2)
