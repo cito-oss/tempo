@@ -41,6 +41,10 @@ func Greeter(ctx context.Context, name string) (string, error) {
 }
 
 func SayHello(t *tempo.T, name string) {
+	// use t.Go for workflow.Go
+	// use t.WaitGroup for workflow.NewWaitGroup
+	// use t.BufferedChannel for workflow.NewBufferedChannel
+
 	t.Run("must greet :name", func(t *tempo.T) {
 		var greetings string
 
@@ -104,6 +108,7 @@ func main() {
 	)
 
 	myrunner.SetReporting(true) // enable Allure reporting
+	myrunner.SetLimit(1)        // limit number of concurrent tests
 
 	// blocking call
 	err = myrunner.Run("v1.0.0")

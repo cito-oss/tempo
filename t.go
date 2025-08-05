@@ -127,6 +127,13 @@ func (t *T) WaitGroup() *WaitGroup {
 	}
 }
 
+func (t *T) BufferedChannel(size int) *Channel {
+	return &Channel{
+		ctx:   t.ctx,
+		chann: workflow.NewBufferedChannel(t.ctx, size),
+	}
+}
+
 func (t *T) Go(fn func(t *T)) {
 	t.wg.Add(1)
 

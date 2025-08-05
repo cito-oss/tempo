@@ -47,6 +47,7 @@ func Example1() {
 		},
 	})
 
+	// non-blocking call
 	err = myworker.Start()
 	if err != nil {
 		panic(err)
@@ -64,8 +65,10 @@ func Example1() {
 		tempo.NewPlan(tests.UnknownPerson, nil),
 	)
 
-	myrunner.SetReporting(true)
+	myrunner.SetReporting(true) // enable Allure reporting
+	myrunner.SetLimit(3)        // limit number of concurrent tests
 
+	// blocking call
 	err = myrunner.Run("v1.0.0-" + time.Now().Format("20060102T150405"))
 	if err != nil {
 		panic(err)

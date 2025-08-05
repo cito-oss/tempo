@@ -14,7 +14,7 @@ func TestNewTest(t *testing.T) {
 
 		test := NewTest(MyWorkflow)
 		assert.Equal(t, "MyWorkflow", test.Name())
-		assert.NotNil(t, test.(*workflowWrapper[any, any]).fn)
+		assert.NotNil(t, test.(*Workflow[any, any]).fn)
 	})
 
 	t.Run("new test with input", func(t *testing.T) {
@@ -22,7 +22,7 @@ func TestNewTest(t *testing.T) {
 
 		test := NewTestWithInput(MyWorkflowWithInput)
 		assert.Equal(t, "MyWorkflowWithInput", test.Name())
-		assert.NotNil(t, test.(*workflowWrapper[string, any]).fnWithIn)
+		assert.NotNil(t, test.(*Workflow[string, any]).fnWithIn)
 	})
 
 	t.Run("new test with output", func(t *testing.T) {
@@ -30,7 +30,7 @@ func TestNewTest(t *testing.T) {
 
 		test := NewTestWithOutput(MyWorkflowWithOutput)
 		assert.Equal(t, "MyWorkflowWithOutput", test.Name())
-		assert.NotNil(t, test.(*workflowWrapper[any, string]).fnWithOut)
+		assert.NotNil(t, test.(*Workflow[any, string]).fnWithOut)
 	})
 
 	t.Run("new test with input and output", func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestNewTest(t *testing.T) {
 
 		test := NewTestWithInputAndOutput(MyWorkflowWithInputAndOutput)
 		assert.Equal(t, "MyWorkflowWithInputAndOutput", test.Name())
-		assert.NotNil(t, test.(*workflowWrapper[string, string]).fnWithInAndOut)
+		assert.NotNil(t, test.(*Workflow[string, string]).fnWithInAndOut)
 	})
 }
 
