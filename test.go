@@ -13,7 +13,7 @@ type Test interface {
 //		Name: mytest.Name(),
 //	})
 func NewTest(fn func(*T)) Test {
-	return &workflowWrapper[any, any]{
+	return &Workflow[any, any]{
 		name: getFunctionName(fn),
 		fn:   fn,
 	}
@@ -27,7 +27,7 @@ func NewTest(fn func(*T)) Test {
 //		Name: mytest.Name(),
 //	})
 func NewTestWithInput[INPUT any](fn func(*T, INPUT)) Test {
-	return &workflowWrapper[INPUT, any]{
+	return &Workflow[INPUT, any]{
 		name:     getFunctionName(fn),
 		fnWithIn: fn,
 	}
@@ -41,7 +41,7 @@ func NewTestWithInput[INPUT any](fn func(*T, INPUT)) Test {
 //		Name: mytest.Name(),
 //	})
 func NewTestWithOutput[OUTPUT any](fn func(*T) OUTPUT) Test {
-	return &workflowWrapper[any, OUTPUT]{
+	return &Workflow[any, OUTPUT]{
 		name:      getFunctionName(fn),
 		fnWithOut: fn,
 	}
@@ -55,7 +55,7 @@ func NewTestWithOutput[OUTPUT any](fn func(*T) OUTPUT) Test {
 //		Name: mytest.Name(),
 //	})
 func NewTestWithInputAndOutput[INPUT any, OUTPUT any](fn func(*T, INPUT) OUTPUT) Test {
-	return &workflowWrapper[INPUT, OUTPUT]{
+	return &Workflow[INPUT, OUTPUT]{
 		name:           getFunctionName(fn),
 		fnWithInAndOut: fn,
 	}

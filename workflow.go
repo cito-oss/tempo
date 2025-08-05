@@ -11,7 +11,8 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-type workflowWrapper[INPUT any, OUTPUT any] struct {
+// Workflow is a wrapper for Temporal Workflow
+type Workflow[INPUT any, OUTPUT any] struct {
 	fn             func(*T)
 	fnWithIn       func(*T, INPUT)
 	fnWithOut      func(*T) OUTPUT
@@ -20,18 +21,18 @@ type workflowWrapper[INPUT any, OUTPUT any] struct {
 }
 
 // Name returns the name of the Workflow
-func (c *workflowWrapper[I, O]) Name() string {
+func (c *Workflow[I, O]) Name() string {
 	return c.name
 }
 
 // Function returns the function that should be given to Temporal
-func (c *workflowWrapper[I, O]) Function() any {
+func (c *Workflow[I, O]) Function() any {
 	return c.workflow
 }
 
 // workflow is the function that is given to temporal SDK.
 // The `input` must use generics in order to temporal SDK infer the type
-func (c *workflowWrapper[I, O]) workflow(ctx workflow.Context, input I) (O, error) {
+func (c *Workflow[I, O]) workflow(ctx workflow.Context, input I) (O, error) {
 	logger := workflow.GetLogger(ctx)
 
 	step := &allure.Step{

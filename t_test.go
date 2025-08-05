@@ -370,9 +370,11 @@ func TestTRunAsChild(t *testing.T) {
 func TestTWaitGroup(t *testing.T) {
 	t.Parallel()
 
+	env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
+
 	var called bool
 
-	myTestFn := func(ctx workflow.Context) error {
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
 		called = true
 
 		myt := &T{ctx: ctx}
@@ -381,12 +383,28 @@ func TestTWaitGroup(t *testing.T) {
 		assert.Equal(t, ctx, wg.ctx)
 
 		return nil
-	}
+	})
+
+	assert.True(t, called)
+}
+
+func TestTBufferedChannel(t *testing.T) {
+	t.Parallel()
 
 	env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
 
-	env.RegisterWorkflow(myTestFn)
-	env.ExecuteWorkflow(myTestFn)
+	var called bool
+
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		called = true
+
+		myt := &T{ctx: ctx}
+
+		chann := myt.BufferedChannel(3)
+		assert.Equal(t, ctx, chann.ctx)
+
+		return nil
+	})
 
 	assert.True(t, called)
 }
@@ -420,8 +438,9 @@ func TestTRun(t *testing.T) {
 			return nil
 		})
 
-		require.NotEmpty(t, logger.calls)
-		assert.Equal(t, "run test: [name my_test]", logger.calls[0])
+		require.NotEmpty(t, logger.info)
+
+		assert.Equal(t, "run test: [name my_test]", logger.info[0])
 
 		assert.True(t, called)
 	})
@@ -459,8 +478,9 @@ func TestTRun(t *testing.T) {
 			return nil
 		})
 
-		require.Len(t, logger.calls, 1)
-		assert.Equal(t, "run test: [name my_test]", logger.calls[0])
+		require.Len(t, logger.info, 1)
+
+		assert.Equal(t, "run test: [name my_test]", logger.info[0])
 
 		assert.True(t, called)
 		assert.True(t, uncalled)
@@ -508,10 +528,11 @@ func TestTRun(t *testing.T) {
 			return nil
 		})
 
-		require.Len(t, logger.calls, 2)
+		require.Len(t, logger.info, 1)
+		require.Len(t, logger.error, 1)
 
-		assert.Equal(t, "run test: [name my_test]", logger.calls[0])
-		assert.Equal(t, "ohh no! what happened?: nothing!: [name my_test]", logger.calls[1])
+		assert.Equal(t, "run test: [name my_test]", logger.info[0])
+		assert.Equal(t, "ohh no! what happened?: nothing!: [name my_test]", logger.error[0])
 
 		assert.True(t, before)
 		assert.True(t, after)
@@ -552,37 +573,79 @@ func TestTRun(t *testing.T) {
 			return nil
 		})
 
-		require.Len(t, logger.calls, 2)
-		assert.Equal(t, "run test: [name my_test]", logger.calls[0])
-		assert.Equal(t, "check this out: [name my_test]", logger.calls[1])
+		require.Len(t, logger.info, 1)
+		require.Len(t, logger.warn, 1)
+
+		assert.Equal(t, "run test: [name my_test]", logger.info[0])
+		assert.Equal(t, "check this out: [name my_test]", logger.warn[0])
 
 		assert.True(t, called)
+	})
+}
+
+func TestT(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stop with no steps", func(t *testing.T) {
+		t.Parallel()
+
+		mockWaitGroup := &MockWaitGroup{}
+
+		myt := T{
+			wg: mockWaitGroup,
+		}
+
+		myt.stop()
+
+		assert.Equal(t, 1, mockWaitGroup.wait)
 	})
 }
 
 // MockLogger is a logger that discards all log messages.
 type MockLogger struct {
 	log.Logger
-	calls []string
+	info  []string
+	warn  []string
+	error []string
 }
 
-func (m *MockLogger) Info(msg string, keyvals ...interface{}) {
-	m.calls = append(m.calls, fmt.Sprintf("%s: %+v", msg, keyvals))
+func (m *MockLogger) Info(msg string, keyvals ...any) {
+	m.info = append(m.info, fmt.Sprintf("%s: %+v", msg, keyvals))
 }
 
-func (m *MockLogger) Warn(msg string, keyvals ...interface{}) {
-	m.calls = append(m.calls, fmt.Sprintf("%s: %+v", msg, keyvals))
+func (m *MockLogger) Warn(msg string, keyvals ...any) {
+	m.warn = append(m.warn, fmt.Sprintf("%s: %+v", msg, keyvals))
 }
 
-func (m *MockLogger) Error(msg string, keyvals ...interface{}) {
-	m.calls = append(m.calls, fmt.Sprintf("%s: %+v", msg, keyvals))
+func (m *MockLogger) Error(msg string, keyvals ...any) {
+	m.error = append(m.error, fmt.Sprintf("%s: %+v", msg, keyvals))
 }
 
 type MockChannel struct {
 	workflow.Channel
-	calls []string
+	send    int
+	receive int
+	close   int
 }
 
 func (m *MockChannel) Send(ctx workflow.Context, value any) {
-	m.calls = append(m.calls, fmt.Sprintf("%+v", value))
+	m.send++
+}
+
+func (m *MockChannel) Receive(ctx workflow.Context, valuePtr any) (more bool) {
+	m.receive++
+	return false
+}
+
+func (m *MockChannel) Close() {
+	m.close++
+}
+
+type MockWaitGroup struct {
+	workflow.WaitGroup
+	wait int
+}
+
+func (m *MockWaitGroup) Wait(ctx workflow.Context) {
+	m.wait++
 }

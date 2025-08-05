@@ -10,9 +10,9 @@ import (
 func TestWaitGroup(t *testing.T) {
 	t.Parallel()
 
-	ctx := &MockWorkflowContext{}
+	var ctx workflow.Context
 
-	mockedWaitGroup := &MockWorkflowWaitGroup{}
+	mockedWaitGroup := &MockWaitGroup{}
 
 	wg := WaitGroup{
 		ctx:       ctx,
@@ -21,18 +21,5 @@ func TestWaitGroup(t *testing.T) {
 
 	wg.Wait()
 
-	assert.Equal(t, ctx, mockedWaitGroup.calls[0])
-}
-
-type MockWorkflowContext struct {
-	workflow.Context
-}
-
-type MockWorkflowWaitGroup struct {
-	workflow.WaitGroup
-	calls []workflow.Context
-}
-
-func (m *MockWorkflowWaitGroup) Wait(ctx workflow.Context) {
-	m.calls = append(m.calls, ctx)
+	assert.Equal(t, 1, mockedWaitGroup.wait)
 }

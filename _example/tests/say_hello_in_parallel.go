@@ -10,12 +10,20 @@ import (
 func SayHelloInParallel(t *tempo.T) {
 	names := []string{"John Doe", "Jane Doe", "World"}
 
+	// uncomment to limit concurrent coroutines
+	// chann := t.BufferedChannel(2)
+	// defer chann.Close()
+
 	wg := t.WaitGroup()
 
 	for _, name := range names {
+		// uncomment to limit concurrent coroutines
+		// chann.Send(nil)
 		wg.Add(1)
 
 		t.Go(func(t *tempo.T) {
+			// uncomment to limit concurrent coroutines
+			// defer chann.Receive(nil)
 			defer wg.Done()
 
 			var greetings string

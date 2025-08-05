@@ -30,7 +30,7 @@ func TestWorkflowWrapper(t *testing.T) {
 			return "hello " + name, nil
 		}
 
-		wrapped := workflowWrapper[any, any]{
+		wrapped := Workflow[any, any]{
 			name: "my_test",
 			fn: func(myt *T) {
 				assert.Equal(t, "my_test", myt.name)
@@ -63,7 +63,7 @@ func TestWorkflowWrapper(t *testing.T) {
 			return "hello " + name, nil
 		}
 
-		wrapped := workflowWrapper[string, any]{
+		wrapped := Workflow[string, any]{
 			name: "my_test_with_input",
 			fnWithIn: func(myt *T, name string) {
 				assert.Equal(t, "my_test_with_input", myt.name)
@@ -97,7 +97,7 @@ func TestWorkflowWrapper(t *testing.T) {
 			return "hello " + name, nil
 		}
 
-		wrapped := workflowWrapper[any, string]{
+		wrapped := Workflow[any, string]{
 			name: "my_test_with_output",
 			fnWithOut: func(myt *T) string {
 				assert.Equal(t, "my_test_with_output", myt.name)
@@ -139,7 +139,7 @@ func TestWorkflowWrapper(t *testing.T) {
 			return "hello " + name, nil
 		}
 
-		wrapped := workflowWrapper[string, string]{
+		wrapped := Workflow[string, string]{
 			name: "my_test_with_input_and_output",
 			fnWithInAndOut: func(myt *T, name string) string {
 				assert.Equal(t, "my_test_with_input_and_output", myt.name)
@@ -176,7 +176,7 @@ func TestWorkflowWrapper(t *testing.T) {
 		var suite testsuite.WorkflowTestSuite
 		env := suite.NewTestWorkflowEnvironment()
 
-		wrapped := workflowWrapper[any, any]{
+		wrapped := Workflow[any, any]{
 			name: "my_test",
 			fn: func(myt *T) {
 				myt.Errorf("something went wrong")
@@ -203,7 +203,7 @@ func TestWorkflowWrapper(t *testing.T) {
 		var suite testsuite.WorkflowTestSuite
 		env := suite.NewTestWorkflowEnvironment()
 
-		wrapped := workflowWrapper[any, any]{
+		wrapped := Workflow[any, any]{
 			name: "my_test",
 			fn: func(myt *T) {
 				myt.FailNow()
@@ -231,7 +231,7 @@ func TestWorkflowWrapperReport(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
 
-	wrapped := workflowWrapper[any, any]{
+	wrapped := Workflow[any, any]{
 		name: "my_test",
 		fn: func(myt *T) {
 			myt.Run("sub_test", func(myt *T) {
@@ -336,7 +336,7 @@ func TestWorkflowWrapperRecursivelyFail(t *testing.T) {
 	var mainT *T
 	var mainCaseT *T
 
-	mainWorkflow := workflowWrapper[any, any]{
+	mainWorkflow := Workflow[any, any]{
 		name: "main_workflow",
 		fn: func(myt *T) {
 			mainT = myt
@@ -357,7 +357,7 @@ func TestWorkflowWrapperRecursivelyFail(t *testing.T) {
 	var childCaseFailT *T
 	var childCaseFailGoT *T
 
-	childWorkflow := workflowWrapper[any, any]{
+	childWorkflow := Workflow[any, any]{
 		name: "child_workflow",
 		fn: func(myt *T) {
 			childT = myt
