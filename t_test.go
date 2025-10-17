@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,6 +17,49 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
+
+func TestTAbortAfterFailNow(t *testing.T) {
+	t.Parallel()
+
+	work := NewTest(func(t *T) {
+		t.SetActivityOptions(workflow.ActivityOptions{
+			StartToCloseTimeout: time.Minute,
+			RetryPolicy: &temporal.RetryPolicy{
+				MaximumAttempts: 1,
+			},
+		})
+
+		t.Run("activity that fails", func(t *T) {
+			err := t.Task("ActivityThatFails", nil, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("activity that works", func(t *T) {
+			err := t.Task("ActivityThatWorks", nil, nil)
+			require.NoError(t, err)
+		})
+	})
+
+	env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(work.Function(), workflow.RegisterOptions{Name: work.Name()})
+
+	env.RegisterActivityWithOptions(func(ctx context.Context) error {
+		return errors.New("end of the line")
+	}, activity.RegisterOptions{Name: "ActivityThatFails"})
+
+	var continued bool
+	var once sync.Once
+
+	env.RegisterActivityWithOptions(func(ctx context.Context) error {
+		once.Do(func() { continued = true })
+		return nil
+	}, activity.RegisterOptions{Name: "ActivityThatWorks"})
+
+	env.ExecuteWorkflow(work.Name())
+
+	assert.False(t, continued, "must NOT had continued after FailNow")
+}
 
 func TestTGo(t *testing.T) {
 	t.Parallel()
