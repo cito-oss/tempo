@@ -35,6 +35,7 @@ type T struct {
 	name     string
 	failures []string
 	failed   bool
+	exited   bool
 	step     *allure.Step
 	wg       workflow.WaitGroup
 }
@@ -57,6 +58,11 @@ func (t *T) fail() {
 	}
 }
 
+func (t *T) exit() {
+	t.exited = true
+	runtime.Goexit()
+}
+
 func (t *T) Errorf(format string, args ...any) {
 	t.fail()
 	msg := fmt.Sprintf(format, args...)
@@ -71,7 +77,7 @@ func (t *T) Warnf(format string, args ...any) {
 
 func (t *T) FailNow() {
 	t.fail()
-	runtime.Goexit()
+	t.exit()
 }
 
 func (t *T) SetActivityOptions(options workflow.ActivityOptions) {
@@ -118,6 +124,10 @@ func (t *T) Run(name string, fn func(*T)) {
 	defer child.stop()
 
 	invoke(func() { fn(child) })
+
+	if child.exited {
+		t.exit()
+	}
 }
 
 func (t *T) WaitGroup() *WaitGroup {
@@ -147,6 +157,10 @@ func (t *T) Go(fn func(t *T)) {
 		defer t.wg.Done()
 
 		invoke(func() { fn(child) })
+
+		if child.exited {
+			t.exit()
+		}
 	})
 }
 
