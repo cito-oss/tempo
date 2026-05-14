@@ -2,7 +2,6 @@ package tempo
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -73,7 +72,9 @@ func Run(cli client.Client, queue string, id string, plan Plan, output any, opts
 
 			result.Status = allure.Passed // assume tests passed...
 
-			if workflowerr != nil {
+			if run == nil {
+				result.Status = allure.Broken
+			} else if workflowerr != nil {
 				result.Status = allure.Failed // ... but set to failed if the workflow returned error
 			}
 
@@ -83,58 +84,60 @@ func Run(cli client.Client, queue string, id string, plan Plan, output any, opts
 
 			log.Println("saving report...")
 
-			desc, err := cli.DescribeWorkflowExecution(context.Background(), run.GetID(), run.GetRunID())
-			if err != nil {
-				log.Printf("report: fail to describe parent workflow: %s", err)
-			}
-
-			if field, ok := desc.GetWorkflowExecutionInfo().GetMemo().GetFields()[reportStepField]; ok {
-				dc := converter.GetDefaultDataConverter()
-
-				step := &allure.Step{}
-
-				err = dc.FromPayload(field, step)
+			if run != nil {
+				desc, err := cli.DescribeWorkflowExecution(context.Background(), run.GetID(), run.GetRunID())
 				if err != nil {
-					log.Printf("report: fail to decode parent memo field: %s", err)
+					log.Printf("report: fail to describe parent workflow: %s", err)
 				} else {
-					result.Steps = append(result.Steps, step)
-				}
-			}
+					if field, ok := desc.GetWorkflowExecutionInfo().GetMemo().GetFields()[reportStepField]; ok {
+						dc := converter.GetDefaultDataConverter()
 
-			req := &workflowservice.ListWorkflowExecutionsRequest{
-				Query: fmt.Sprintf(`ParentWorkflowId='%s'`, run.GetID()),
-			}
+						step := &allure.Step{}
 
-			resp, err := cli.ListWorkflow(context.Background(), req)
-			if err != nil {
-				log.Printf("report: fail to list child workflows: %s", err)
-			}
-
-			// get all child workflows (if any) and parse their `reportStepField`
-			// into the map below
-			childs := map[string]*allure.Step{}
-			for _, exec := range resp.GetExecutions() {
-				if field, ok := exec.GetMemo().GetFields()[reportStepField]; ok {
-					dc := converter.GetDefaultDataConverter()
-
-					step := &allure.Step{}
-
-					err := dc.FromPayload(field, step)
-					if err != nil {
-						log.Printf("report: fail to decode child memo field: %s", err)
-						continue
+						err = dc.FromPayload(field, step)
+						if err != nil {
+							log.Printf("report: fail to decode parent memo field: %s", err)
+						} else {
+							result.Steps = append(result.Steps, step)
+						}
 					}
-
-					id := reportReplaceID(exec.GetExecution().GetWorkflowId(), exec.GetExecution().GetRunId())
-					childs[id] = step
 				}
-			}
 
-			mergeSteps(childs, result.Steps)
-			decodeParameters(result.Parameters, result.Steps)
+				req := &workflowservice.ListWorkflowExecutionsRequest{
+					Query: fmt.Sprintf(`ParentWorkflowId='%s'`, run.GetID()),
+				}
+
+				// get all child workflows (if any) and parse their `reportStepField`
+				// into the map below
+				childs := map[string]*allure.Step{}
+
+				resp, err := cli.ListWorkflow(context.Background(), req)
+				if err != nil {
+					log.Printf("report: fail to list child workflows: %s", err)
+				} else {
+					for _, exec := range resp.GetExecutions() {
+						if field, ok := exec.GetMemo().GetFields()[reportStepField]; ok {
+							dc := converter.GetDefaultDataConverter()
+
+							step := &allure.Step{}
+
+							err := dc.FromPayload(field, step)
+							if err != nil {
+								log.Printf("report: fail to decode child memo field: %s", err)
+								continue
+							}
+
+							id := reportReplaceID(exec.GetExecution().GetWorkflowId(), exec.GetExecution().GetRunId())
+							childs[id] = step
+						}
+					}
+				}
+
+				mergeSteps(childs, result.Steps)
+			}
 
 			if cfg.reportHandler == nil {
-				err = result.Print()
+				err := result.Print()
 				if err != nil {
 					log.Printf("report: failed to save: %s", err)
 				}
@@ -269,27 +272,6 @@ func mergeSteps(childs map[string]*allure.Step, steps []*allure.Step) {
 
 		if len(step.Steps) > 0 {
 			mergeSteps(childs, step.Steps)
-		}
-	}
-}
-
-func decodeParameters(params []*allure.Parameter, steps []*allure.Step) {
-	for _, param := range params {
-		if str, ok := param.Value.(string); ok {
-			var data any
-
-			err := json.Unmarshal([]byte(str), &data)
-			if err != nil {
-				continue
-			}
-
-			param.Value = data
-		}
-	}
-
-	for _, step := range steps {
-		if len(step.Parameters) > 0 || len(step.Steps) > 0 {
-			decodeParameters(step.Parameters, step.Steps)
 		}
 	}
 }
