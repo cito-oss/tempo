@@ -260,13 +260,13 @@ func (t *T) RunAsChild(fn any, input any, output any) {
 
 	err = workflow.Await(ctx, future.IsReady)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("%s", err.Error())
 		t.FailNow()
 	}
 
 	err = future.Get(ctx, output)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("%s", err.Error())
 		t.FailNow()
 	}
 }
