@@ -126,16 +126,24 @@ func newParameter(name string, data any) (*allure.Parameter, bool) {
 		return nil, false
 	}
 
-	tmp, err := json.Marshal(data)
-	if err != nil {
-		return nil, false
-	}
+	var value string
 
-	var value any
+	switch v := data.(type) {
+	case string:
+		value = v
 
-	err = json.Unmarshal(tmp, &value)
-	if err != nil {
-		return nil, false
+	case *string:
+		if v != nil {
+			value = *v
+		}
+
+	default:
+		tmp, err := json.Marshal(data)
+		if err != nil {
+			return nil, false
+		}
+
+		value = string(tmp)
 	}
 
 	return &allure.Parameter{
