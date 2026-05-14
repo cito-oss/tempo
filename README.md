@@ -123,6 +123,42 @@ Now run it and check your Temporal:
 
 ![Temporal Screenshot](screenshot-temporal.png)
 
+## Cleanup
+
+Use `t.Cleanup` to register cleanup functions that run when a test or subtest completes, regardless of whether it passed or failed.
+
+Use `t.Failed()` to check if the test has failed, allowing conditional cleanup logic.
+
+```go
+func TestWithCleanup(t *tempo.T, input *MyInput) {
+    var resource *Resource
+
+    t.Run("create resource", func(t *tempo.T) {
+        resp := &CreateResponse{}
+
+        err := t.Task(CreateResource, input.Name, resp)
+        require.NoError(t, err)
+
+        resource = resp.Resource
+    })
+
+	// Register cleanup to delete the resource when the test ends
+	t.Cleanup(func() {
+		if t.Failed() {
+			// Keep the resource for troubleshooting
+			return
+		}
+
+		err := t.Task(DeleteResource, &DeleteRequest{ID: resource.ID}, nil)
+		require.NoError(t, err)
+	})
+
+    t.Run("use resource", func(t *tempo.T) {
+        // ...
+    })
+}
+```
+
 ## Reporting
 
 If you are using the runner, enabled it with:
@@ -144,8 +180,8 @@ or if you are invoking tests manually:
 Then, run your tests. Once they are completed, you will notice that an `allure-results` folder has been created. You can now generate and view the report using the following commands:
 
 ```shell
-allure generate allure-results --clean -o allure-report
-allure open allure-report
+allure generate
+allure open
 ```
 
 ![Allure Report Screenshot 1](screenshot-report1.png)

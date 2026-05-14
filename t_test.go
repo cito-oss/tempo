@@ -489,6 +489,30 @@ func TestTRun(t *testing.T) {
 		assert.True(t, called)
 	})
 
+	t.Run("cleanup runs after subtest", func(t *testing.T) {
+		t.Parallel()
+
+		var suite testsuite.WorkflowTestSuite
+		env := suite.NewTestWorkflowEnvironment()
+
+		work := NewTest(func(t *T) {
+			var cleanupCalled bool
+
+			t.Run("subtest", func(t *T) {
+				t.Cleanup(func() {
+					cleanupCalled = true
+				})
+			})
+
+			assert.True(t, cleanupCalled, "cleanup must run after subtest completes")
+		})
+
+		env.RegisterWorkflowWithOptions(work.Function(), workflow.RegisterOptions{Name: work.Name()})
+		env.ExecuteWorkflow(work.Name())
+
+		require.NoError(t, env.GetWorkflowError())
+	})
+
 	t.Run("fail now", func(t *testing.T) {
 		t.Parallel()
 
