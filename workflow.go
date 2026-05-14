@@ -70,6 +70,8 @@ func (c *Workflow[I, O]) workflow(ctx workflow.Context, input I) (O, error) {
 		}
 	})
 
+	t.cleanup()
+
 	step.Stop = workflow.Now(ctx).UnixMilli()
 	step.Status = allure.Passed
 

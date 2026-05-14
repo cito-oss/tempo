@@ -38,6 +38,7 @@ type T struct {
 	exited   bool
 	step     *allure.Step
 	wg       workflow.WaitGroup
+	cleanups []func()
 }
 
 func (t *T) child(name string) *T {
@@ -115,6 +116,37 @@ func (t *T) stop() {
 	}
 }
 
+func (t *T) Cleanup(f func()) {
+	t.cleanups = append(t.cleanups, f)
+}
+
+func (t *T) cleanup() {
+	if len(t.cleanups) == 0 {
+		return
+	}
+
+	child := t.child(fmt.Sprintf("cleanup(%s)", t.name))
+
+	child.cleanups = t.cleanups
+
+	child.start("Cleanup")
+	defer child.stop()
+
+	// Swap t.previous so cleanup t.Task() calls nest under the Cleanup previous.
+	previous := t.step
+	t.step = child.step
+
+	defer func() { t.step = previous }()
+
+	for i := len(child.cleanups) - 1; i >= 0; i-- {
+		child.cleanups[i]()
+	}
+}
+
+func (t *T) Failed() bool {
+	return t.failed
+}
+
 func (t *T) Run(name string, fn func(*T)) {
 	t.logger.Info("run test", "name", name)
 
@@ -122,6 +154,7 @@ func (t *T) Run(name string, fn func(*T)) {
 
 	child.start(fmt.Sprintf("Test(%s)", name))
 	defer child.stop()
+	defer child.cleanup()
 
 	invoke(func() { fn(child) })
 
