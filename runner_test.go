@@ -285,7 +285,7 @@ func TestRunnerReport(t *testing.T) {
 			require.Len(t, result.Parameters, 1)
 
 			assert.Equal(t, "input", result.Parameters[0].Name)
-			assert.InEpsilon(t, 1234, result.Parameters[0].Value, 0)
+			assert.Equal(t, "1234", result.Parameters[0].Value)
 		})
 
 		assert.True(t, runner.reporting)
