@@ -3,8 +3,8 @@ module github.com/cito-oss/tempo
 go 1.24.0
 
 require (
-	github.com/ozontech/allure-go/pkg/allure v0.7.1
-	github.com/stretchr/testify v1.10.0
+	github.com/ozontech/allure-go/pkg/allure v0.8.2
+	github.com/stretchr/testify v1.11.1
 	go.temporal.io/api v1.62.11
 	go.temporal.io/sdk v1.43.0
 )
@@ -12,6 +12,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
+	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
