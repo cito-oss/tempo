@@ -17,12 +17,16 @@ func TestStopAfterDispatcherStopped(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nothing spawned", func(t *testing.T) {
+		t.Parallel()
+
 		escaped := escapedT(t, nil)
 
 		assert.NotPanics(t, func() { escaped.stop() })
 	})
 
 	t.Run("Go spawned a goroutine", func(t *testing.T) {
+		t.Parallel()
+
 		escaped := escapedT(t, func(myt *T) { myt.Go(func(*T) {}) })
 
 		assert.True(t, escaped.spawned)
