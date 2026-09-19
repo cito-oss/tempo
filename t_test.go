@@ -654,13 +654,30 @@ func TestTRun(t *testing.T) {
 func TestT(t *testing.T) {
 	t.Parallel()
 
-	t.Run("stop with no steps", func(t *testing.T) {
+	t.Run("stop with no steps does not wait", func(t *testing.T) {
 		t.Parallel()
 
 		mockWaitGroup := &MockWaitGroup{}
 
 		myt := T{
 			wg: mockWaitGroup,
+		}
+
+		myt.stop()
+
+		// Nothing was spawned, so there is nothing to wait for — and the wait is
+		// what panics once the dispatcher has stopped executing.
+		assert.Equal(t, 0, mockWaitGroup.wait)
+	})
+
+	t.Run("stop waits for what Go spawned", func(t *testing.T) {
+		t.Parallel()
+
+		mockWaitGroup := &MockWaitGroup{}
+
+		myt := T{
+			wg:      mockWaitGroup,
+			spawned: true,
 		}
 
 		myt.stop()
