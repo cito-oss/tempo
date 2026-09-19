@@ -38,6 +38,7 @@ type T struct {
 	exited   bool
 	step     *allure.Step
 	wg       workflow.WaitGroup
+	spawned  bool
 	cleanups []func()
 }
 
@@ -96,8 +97,32 @@ func (t *T) start(name string) {
 	}
 }
 
-func (t *T) stop() {
+// wait blocks on the goroutines Go spawned.
+//
+// Skipped when Go spawned none: workflow.WaitGroup.Wait checks the dispatcher before
+// its own counter, so an empty wait still panics once the dispatcher has stopped
+// executing. A test unwinding after FailNow can be exactly there, because invoke runs
+// the body on a goroutine the dispatcher does not own and the workflow task can end
+// under it.
+//
+// The recover covers the case where there was something to wait for: a straggler costs
+// the report a step, never the worker process.
+func (t *T) wait() {
+	if !t.spawned {
+		return
+	}
+
+	defer func() {
+		if r := recover(); r != nil && t.logger != nil {
+			t.logger.Warn("wait aborted, workflow context is gone", "name", t.name, "reason", r)
+		}
+	}()
+
 	t.wg.Wait(t.ctx)
+}
+
+func (t *T) stop() {
+	t.wait()
 
 	if t.step == nil {
 		return
@@ -178,6 +203,8 @@ func (t *T) BufferedChannel(size int) *Channel {
 }
 
 func (t *T) Go(fn func(t *T)) {
+	t.spawned = true
+
 	t.wg.Add(1)
 
 	workflow.Go(t.ctx, func(ctx workflow.Context) {
