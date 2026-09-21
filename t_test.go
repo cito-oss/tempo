@@ -131,10 +131,10 @@ func TestTActivity(t *testing.T) {
 
 		env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
 
-		var called bool
+		var called atomic.Bool // to avoid race condition, use atomic
 
 		myActivity := func(ctx context.Context, name string) (string, error) {
-			called = true
+			called.Store(true)
 			return "hello " + name, nil
 		}
 
@@ -142,6 +142,11 @@ func TestTActivity(t *testing.T) {
 			myt := &T{ctx: ctx}
 
 			env.CancelWorkflow()
+
+			// CancelWorkflow only queues the cancellation, so yield to let it
+			// land. Without this the activity is scheduled against a context
+			// that is not cancelled yet, and whether it runs is a race.
+			_ = workflow.Sleep(ctx, time.Millisecond)
 
 			var given string
 
@@ -158,7 +163,7 @@ func TestTActivity(t *testing.T) {
 
 		env.ExecuteWorkflow("myWorkflow")
 
-		assert.False(t, called)
+		assert.False(t, called.Load())
 	})
 
 	t.Run("fail activity", func(t *testing.T) {
@@ -269,6 +274,11 @@ func TestTRunAsChild(t *testing.T) {
 			var given string
 
 			env.CancelWorkflow()
+
+			// CancelWorkflow only queues the cancellation, so yield to let it
+			// land. Without this the activity is scheduled against a context
+			// that is not cancelled yet, and whether it runs is a race.
+			_ = workflow.Sleep(ctx, time.Millisecond)
 
 			err := myt.Task("myActivity", name, &given)
 			require.Error(t, err)
