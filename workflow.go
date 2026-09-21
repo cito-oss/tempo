@@ -44,12 +44,13 @@ func (c *Workflow[I, O]) workflow(ctx workflow.Context, input I) (O, error) {
 		step.Parameters = append(step.Parameters, param)
 	}
 
+	// No WaitGroup: Go builds one when something is actually spawned, the same way
+	// a child T gets one.
 	t := &T{
 		name:   c.name,
 		ctx:    ctx,
 		logger: logger,
 		step:   step,
-		wg:     workflow.NewWaitGroup(ctx),
 	}
 
 	var output O
