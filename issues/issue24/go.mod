@@ -1,6 +1,6 @@
 module bug
 
-go 1.24.0
+go 1.26.0
 
 // Uncomment to verify a fix against a local checkout:
 // replace github.com/cito-oss/tempo => ../../

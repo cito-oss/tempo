@@ -23,7 +23,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.2
+          version: v2.13.2
 
       - name: Test
         run: go test -race -count 1 -cover -covermode atomic -coverprofile coverage.txt $(go list ./... | grep -v ./example/)
