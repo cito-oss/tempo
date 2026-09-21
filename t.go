@@ -42,6 +42,12 @@ type T struct {
 	cleanups []func()
 }
 
+// child builds the T a subtest, a Go goroutine or a cleanup runs against.
+//
+// It touches nothing on the workflow context. The WaitGroup is left to Go, which is
+// the only thing that needs one, because child is also called from cleanup — on the
+// teardown path, where the dispatcher may already have stopped and where building a
+// WaitGroup would panic.
 func (t *T) child(name string) *T {
 	return &T{
 		name:    name,
@@ -49,7 +55,6 @@ func (t *T) child(name string) *T {
 		logger:  t.logger,
 		options: t.options,
 		parent:  t,
-		wg:      workflow.NewWaitGroup(t.ctx),
 	}
 }
 
@@ -97,26 +102,40 @@ func (t *T) start(name string) {
 	}
 }
 
+// teardown turns a stopped dispatcher into a log line, and re-panics anything
+// else so a real failure in a cleanup still surfaces.
+//
+// Teardown runs on a goroutine the dispatcher does not own — invoke spawns it — so it
+// can outlive the workflow task. On eviction the SDK closes the dispatcher and sends
+// runtime.Goexit() into the parked coroutine, and every deferred call here then runs
+// with no dispatcher to talk to. None of it is worth the worker process: what is lost
+// is a report step, or cleanups for a workflow that is being torn down anyway.
+func (t *T) teardown(what string) {
+	r := recover()
+	if r == nil {
+		return
+	}
+
+	if msg, ok := r.(string); !ok || !strings.Contains(msg, "illegal access from outside of workflow context") {
+		panic(r)
+	}
+
+	if t.logger != nil {
+		t.logger.Warn(what+" aborted, workflow context is gone", "name", t.name)
+	}
+}
+
 // wait blocks on the goroutines Go spawned.
 //
 // Skipped when Go spawned none: workflow.WaitGroup.Wait checks the dispatcher before
 // its own counter, so an empty wait still panics once the dispatcher has stopped
-// executing. A test unwinding after FailNow can be exactly there, because invoke runs
-// the body on a goroutine the dispatcher does not own and the workflow task can end
-// under it.
-//
-// The recover covers the case where there was something to wait for: a straggler costs
-// the report a step, never the worker process.
+// executing.
 func (t *T) wait() {
 	if !t.spawned {
 		return
 	}
 
-	defer func() {
-		if r := recover(); r != nil && t.logger != nil {
-			t.logger.Warn("wait aborted, workflow context is gone", "name", t.name, "reason", r)
-		}
-	}()
+	defer t.teardown("wait")
 
 	t.wg.Wait(t.ctx)
 }
@@ -149,6 +168,12 @@ func (t *T) cleanup() {
 	if len(t.cleanups) == 0 {
 		return
 	}
+
+	// Cleanups are attempted, not skipped: there is no way to ask the SDK whether a
+	// context is still live without touching it. A body doing plain Go work
+	// completes; one that reaches for the workflow is abandoned here, along with the
+	// rest, since the workflow it would clean up after is already gone.
+	defer t.teardown("cleanup")
 
 	child := t.child(fmt.Sprintf("cleanup(%s)", t.name))
 
@@ -203,6 +228,13 @@ func (t *T) BufferedChannel(size int) *Channel {
 }
 
 func (t *T) Go(fn func(t *T)) {
+	// Built here rather than in child: Go runs while the dispatcher is executing,
+	// which is the only moment a WaitGroup can be created. Left alone when one is
+	// already set, so a caller-supplied WaitGroup survives.
+	if t.wg == nil {
+		t.wg = workflow.NewWaitGroup(t.ctx)
+	}
+
 	t.spawned = true
 
 	t.wg.Add(1)
