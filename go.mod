@@ -1,6 +1,6 @@
 module github.com/cito-oss/tempo
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/ozontech/allure-go/pkg/allure v0.8.2
