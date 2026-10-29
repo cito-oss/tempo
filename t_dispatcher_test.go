@@ -97,6 +97,44 @@ func TestCleanupAfterDispatcherStopped(t *testing.T) {
 	})
 }
 
+// invoke runs test bodies on a goroutine the dispatcher doesn't own. If the workflow
+// is terminated or evicted mid-test, the body's next workflow call panics there, and
+// unrecovered it took the worker process down. Without the fix, this crashes the test
+// binary instead of failing: the panic is out of assert's reach.
+func TestInvokeAfterDispatcherStopped(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a test body that runs a task is abandoned", func(t *testing.T) {
+		t.Parallel()
+
+		escaped := escapedT(t, nil)
+
+		var after bool
+
+		assert.NotPanics(t, func() {
+			invoke(func() {
+				_ = escaped.Task("myActivity", nil, nil)
+
+				after = true
+			})
+		})
+
+		assert.False(t, after, "the test body should end at the call that found the dispatcher stopped")
+	})
+
+	t.Run("a test body that does plain work still runs", func(t *testing.T) {
+		t.Parallel()
+
+		var ran bool
+
+		assert.NotPanics(t, func() {
+			invoke(func() { ran = true })
+		})
+
+		assert.True(t, ran)
+	})
+}
+
 // escapedT runs a workflow to completion and hands back the T it built, so the
 // caller holds a workflow context whose dispatcher has stopped executing.
 func escapedT(t *testing.T, during func(*T)) *T {
