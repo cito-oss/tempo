@@ -105,13 +105,27 @@ func (c *Workflow[I, O]) workflow(ctx workflow.Context, input I) (O, error) {
 }
 
 // invoke calls the given function but in a goroutine, so it can be aborted using runtime.Goexit
+//
+// If the workflow is terminated or evicted mid-test, the next workflow call panics on a
+// stopped dispatcher: that panic only ends the test, others are re-raised.
 func invoke(fn func()) {
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+
+	wg.Go(func() {
+		defer func() {
+			r := recover()
+			if r == nil {
+				return
+			}
+
+			if msg, ok := r.(string); !ok || !strings.Contains(msg, "illegal access from outside of workflow context") {
+				panic(r)
+			}
+		}()
+
 		fn()
-	}()
+	})
+
 	wg.Wait()
 }
 
